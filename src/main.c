@@ -6,10 +6,42 @@
 #include "../headers/dr_mp3.h"
 
 #define ORG_AUDIO "out/music.mp3"
-#define INPUT_AUDIO "out/test.mp3"
+#define INPUT_AUDIO "out/test2.mp3"
 
 #define BUFFER_SZ 4096
 #define HOP_SZ 441
+
+float CorrectPitch(float original, float input)
+{
+    float bestPitch = input;
+    float bestError = fabsf(1200.0f * log2f(input / original));
+
+    for (int k = 2; k <= 5; k++)
+    {
+        float p = input / k;
+        float error = fabsf(1200.0f * log2f(p / original));
+
+        if (error < bestError)
+        {
+            bestError = error;
+            bestPitch = p;
+        }
+    }
+
+    for (int k = 2; k <= 5; k++)
+    {
+        float p = input * k;
+        float err = fabsf(1200.0f * log2f(p / original));
+
+        if (err < bestError)
+        {
+            bestError = err;
+            bestPitch = p;
+        }
+    }
+
+    return bestPitch;
+}
 
 int main()
 {
@@ -21,6 +53,9 @@ int main()
     float yin_threshold = 0.15f;
     float pitch_org;
     float pitch_inp;
+    float frame_error = 0.0f;
+    float frame_score;
+    float total_score = 0.0f;
 
     drmp3_uint64 Org__totalSamples = 0;
     drmp3_uint64 Input__totalSamples = 0;
@@ -92,6 +127,7 @@ int main()
         pitch_inp = Yin_getPitch(&yin_inp, Input__audioData + pos);
         if (pitch_org <= 0 || pitch_inp <= 0)
             continue;
+        pitch_inp = CorrectPitch(pitch_org, pitch_inp);
 
         if (Yin_getProbability(&yin_org) < 0.7f ||
             Yin_getProbability(&yin_inp) < 0.7f)
@@ -103,26 +139,36 @@ int main()
         if (pitch_inp < 60 || pitch_inp > 1200)
             continue;
 
-        printf(
-            "Org %.2f  Inp %.2f  Ratio %.3f\n",
-            pitch_org,
-            pitch_inp,
-            pitch_inp / pitch_org);
-        total_error;
-        float frame_error = fabsf(pitch_org - pitch_inp);
+        frame_error = fabsf(1200.0f * log2f(pitch_inp / pitch_org)); // in cents
+        // printf(
+        //     "Org %.2f  Inp %.2f  Error %.2f cents\n",
+        //     pitch_org,
+        //     pitch_inp,
+        //     frame_error);
+
         total_error += frame_error;
+        if (frame_error < 25)
+            frame_score = 100;
+        else if (frame_error < 50)
+            frame_score = 90;
+        else if (frame_error < 100)
+            frame_score = 75;
+        else if (frame_error < 200)
+            frame_score = 50;
+        else if (frame_error < 400)
+            frame_score = 20;
+        else
+            frame_score = 0;
+
+        total_score += frame_score;
         total_frames++;
     }
 
     if (total_frames > 0)
     {
-        float final_score = 100.0f - (total_error / (float)total_frames);
-        if (final_score < 0.0f)
-            final_score = 0.0f;
-        if (final_score > 100.0f)
-            final_score = 100.0f;
+        float final_score = total_score / total_frames;
         printf("Total Processed Frames: %llu\n", total_frames);
-        printf("Average error: %.2f Hz\n", total_error / total_frames);
+        printf("Average error: %.2f cents\n", total_error / total_frames);
         printf("Final Singing Score: %.2f\n", final_score);
     }
 
