@@ -15,29 +15,34 @@ float CorrectPitch(float original, float input)
 {
     float bestPitch = input;
     float bestError = fabsf(1200.0f * log2f(input / original));
+    float p = input;
 
-    for (int k = 2; k <= 5; k++)
+    while (1)
     {
-        float p = input / k;
-        float error = fabsf(1200.0f * log2f(p / original));
+        float next = p / 2.0f;
+        float err = fabsf(1200.0f * log2f(next / original));
 
-        if (error < bestError)
-        {
-            bestError = error;
-            bestPitch = p;
-        }
+        if (err >= bestError)
+            break;
+
+        bestError = err;
+        bestPitch = next;
+        p = next;
     }
 
-    for (int k = 2; k <= 5; k++)
-    {
-        float p = input * k;
-        float err = fabsf(1200.0f * log2f(p / original));
+    p = input;
 
-        if (err < bestError)
-        {
-            bestError = err;
-            bestPitch = p;
-        }
+    while (1)
+    {
+        float next = p * 2.0f;
+        float err = fabsf(1200.0f * log2f(next / original));
+
+        if (err >= bestError)
+            break;
+
+        bestError = err;
+        bestPitch = next;
+        p = next;
     }
 
     return bestPitch;
