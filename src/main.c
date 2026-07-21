@@ -6,7 +6,7 @@
 #include "../headers/dr_mp3.h"
 
 #define ORG_AUDIO "out/music.mp3"
-#define INPUT_AUDIO "out/test2.mp3"
+#define INPUT_AUDIO "out/test.mp3"
 
 #define BUFFER_SZ 4096
 #define HOP_SZ 441
@@ -178,11 +178,39 @@ int main()
         total_frames++;
     }
 
+    float alignedError = 0.0f;
+    for (int i = 0; i < validFrames; i++)
+    {
+        float bestError = 1000000.0f;
+
+        for (int offset = -5; offset <= 5; offset++)
+        {
+            int j = i + offset;
+            if (j < 0 || j >= validFrames)
+                continue;
+
+            float err = fabsf(1200.0f * log2f(inpPitchs[j] / orgPitchs[i]));
+
+            if (err < bestError)
+                bestError = err;
+        }
+        alignedError += bestError;
+    }
+
     if (total_frames > 0)
     {
-        float final_score = total_score / total_frames;
+        float avgRawError = total_error / total_frames;
+        float avgAlignedError = alignedError / validFrames;
+
+        float pitchScore = 100.0f * expf(-avgAlignedError / 200.0f);
+        float timingDiff = avgRawError - avgAlignedError;
+        float timingScore = 100.0f * expf(-timingDiff / 150.0f);
+
+        float final_score = pitchScore * 0.7f + timingScore * 0.3f;
+
         printf("Total Processed Frames: %llu\n", total_frames);
-        printf("Average error: %.2f cents\n", total_error / total_frames);
+        printf("Average error: %.2f cents\n", avgRawError);
+        printf("Average aligned error: %.2f cents\n", avgAlignedError);
         printf("Final Singing Score: %.2f\n", final_score);
     }
 
