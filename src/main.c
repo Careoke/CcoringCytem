@@ -107,6 +107,11 @@ int main()
     else
         minSamp = Input__totalSamples;
 
+    size_t maxFrames = minSamp / HOP_SZ;
+    float *orgPitchs = malloc(maxFrames * sizeof(float));
+    float *inpPitchs = malloc(maxFrames * sizeof(float));
+    int validFrames = 0;
+
     for (drmp3_uint64 pos = 0; pos + BUFFER_SZ < minSamp; pos += HOP_SZ)
     {
         float rms = 0.0f;
@@ -144,11 +149,15 @@ int main()
         if (pitch_inp < 60 || pitch_inp > 1200)
             continue;
 
+        orgPitchs[validFrames] = pitch_org;
+        inpPitchs[validFrames] = pitch_inp;
+        validFrames++;
+
         frame_error = fabsf(1200.0f * log2f(pitch_inp / pitch_org)); // in cents
         // printf(
         //     "Org %.2f  Inp %.2f  Error %.2f cents\n",
-        //     pitch_org,
-        //     pitch_inp,
+        //     orgPitchs[validFrames - 1],
+        //     inpPitchs[validFrames - 1],
         //     frame_error);
 
         total_error += frame_error;
@@ -179,6 +188,8 @@ int main()
 
     free(Org__audioData);
     free(Input__audioData);
+    free(orgPitchs);
+    free(inpPitchs);
     drmp3_free(tmpOrg__audioData, NULL);
     drmp3_free(tmpInput__audioData, NULL);
 
